@@ -18,10 +18,10 @@ namespace funcs {
 		return sigmoid(x) * (1 - sigmoid(x));
 	}
 	
-	double prelu(double x) {
-		return x > 0 ? x : 0.01 * x;
+	double lrelu(double x) {
+		return x > 0 ? x : 0.05 * x;
 	}
-	double _prelu(double x) {
-		return x >= 0 ? 1 : 0.01;
+	double _lrelu(double x) {
+		return x >= 0 ? 1 : 0.05;
 	}
 }
