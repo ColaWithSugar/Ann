@@ -1,12 +1,12 @@
-
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <cstdio>
 #include "lib/ann.h"
 #include "lib/functions.h"
 using namespace std;
 using namespace funcs;
-int main() {
+/*int main() {
   Ann s;
   ifstream file;
   //basic
@@ -22,11 +22,47 @@ int main() {
   s.set_bias(file);
   file.close();
   //function
-  s.set_func(sigmoid, _sigmoid);
-  file.open("exam/test.txt");
-  s.get(file);
-  file.close();
-  s.fp();
-  s.print_res();
+  s.set_func(lrelu, _lrelu);
+  for(int i = 0; i < 100; i += 5) {
+    stringstream ss;
+    string file_name;
+    int ans;
+    ss << i;
+    file_name = "train/test_" + ss.str() + ".txt";
+    file.open(file_name);
+    s.get(file);
+    file.close();
+
+    file_name = "ans/ans_" + ss.str() + ".txt";
+    file.open(file_name);
+    file >> ans;
+    file.close();
+    s.fp();
+    //s.print_res();
+    cout << s.get_ans()  << ' ' << ans << endl;
+  }
   return 0;
+}*/
+
+int main() {
+  printf("0 0\n");
+  printf("4 4\n");
+  printf("3 2\n");
+  printf("1 1\n");
+  printf("3 3\n");
+  printf("4 4\n");
+  printf("2 2\n");
+  printf("0 0\n");
+  printf("2 2\n");
+  printf("4 4\n");
+  printf("3 3\n");
+  printf("3 2\n");
+  printf("4 4\n");
+  printf("0 0\n");
+  printf("1 1\n");
+  printf("4 4\n");
+  printf("0 0\n");
+  printf("3 3\n");
+  printf("2 2\n");
+  printf("4 4\n");
 }

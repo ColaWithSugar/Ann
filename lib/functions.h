@@ -8,7 +8,7 @@ namespace funcs {
 		return x > 0 ? x : 0;
 	}
 	double _relu(double x) {
-		return x > 0 ? 1 : 0;
+		return x >= 0 ? 1 : 0;
 	}
 
 	double sigmoid(double x) {

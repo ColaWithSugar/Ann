@@ -4,7 +4,6 @@
 #include <fstream>
 #include <iostream>
 using namespace std;
-double learning_rate = 0.005;
 struct Matrix {
 	int x, y;
 	double **data;
@@ -61,20 +60,29 @@ struct Matrix {
 
 class Ann {
 	private:
+		double learning_rate;
+		int minibatch;
 		int ly, ply[21];
-		Matrix target, net[21], out[21], w[21], bias[21], prop;
-		Matrix Enet[21], Eout[21], Ew[21], Ebias[21];
+		Matrix target, net[21], out[21], w[21], bias[21], softmax, prop;
+		Matrix Enet[21], Eout[21], Ew[21], Ebias[21], Eprop;
+		Matrix Sw[21], Sbias[21];
 		double (*ptr[2])(double);
 	public:
 		Ann() {
 			ly = 0; memset(ply, 0, sizeof ply);
 			ptr[0] = NULL; ptr[1] = NULL;
 		}
+		void set_learning(double val, int size) {
+			learning_rate = val;
+			minibatch = size;
+		}
 		void set_basic(ifstream &file) {
       file >> ly;
 			for(int i = 0; i < ly; ++i) file >> ply[i];
 			target.resize(ply[ly - 1], 1);
 			prop.resize(ply[ly - 1], 1);
+			Eprop.resize(ply[ly - 1], 1);
+			softmax.resize(ply[ly - 1], 1);
 			for(int i = 0; i < ly; ++i) {
 				net[i].resize(ply[i], 1);
 				out[i].resize(ply[i], 1);
@@ -82,10 +90,12 @@ class Ann {
 				Enet[i].resize(ply[i], 1);
 				Eout[i].resize(ply[i], 1);
 				Ebias[i].resize(ply[i], 1);
+				Sbias[i].resize(ply[i], 1);
 			}
 			for(int i = 1; i < ly; ++i) {
 				w[i].resize(ply[i], ply[i - 1]);
 				Ew[i].resize(ply[i], ply[i - 1]);
+				Sw[i].resize(ply[i], ply[i - 1]);
 			}
     }
     void set_weight(ifstream &file) {
@@ -101,51 +111,68 @@ class Ann {
     }
     void get(ifstream &file) {
       for(int i = 0; i < ply[0]; ++i)
-				file >> net[0][i][0];
+				file >> out[0][i][0];
     }
-    void set_target(ifstream &file) {
+    int set_target(ifstream &file) {
 			for(int i = 0; i < ply[ly - 1]; ++i)
 				target[i][0] = 0;
 			int num;
 			file >> num;
 			target[num][0] = 1;
+			return num;
 		}
 		void set_func(double (*f1)(double), double (*f2)(double)) {
 			ptr[0] = f1; ptr[1] = f2;
 		}
 		void fp() {
-			out[0] = net[0].func(ptr[0]);
-			for(int i = 1; i < ly; ++i) {
+			for(int i = 1; i < ly - 1; ++i) {
 				net[i] = w[i] * out[i - 1] + bias[i];
 				out[i] = net[i].func(ptr[0]);
 			}
+			net[ly - 1] = w[ly - 1] * out[ly - 2];
 			double sum = 0;
+			softmax.clear();
 			for(int i = 0; i < ply[ly - 1]; ++i)
-				sum += out[ly - 1][i][0];
+				softmax[i][0] = pow(2.718281828, net[ly - 1][i][0]);
 			for(int i = 0; i < ply[ly - 1]; ++i)
-				prop[i][0] = out[ly - 1][i][0] / sum;
+				sum += softmax[i][0];
+			for(int i = 0; i < ply[ly - 1]; ++i)
+				out[ly - 1][i][0] = softmax[i][0] / sum;
 		}
 		void bp() {
-			Eout[ly - 1].clear();
+			double sum = 0;
+			Eout[ly - 1].clear(); Eout[ly - 2].clear();
+			Enet[ly - 1].clear();
+			Ew[ly - 1].clear();
+			Ebias[ly - 1].clear();
+			for(int i = 0; i < ply[ly - 1]; ++i)
+				sum += softmax[i][0];
 			for(int i = 0; i < ply[ly - 1]; ++i) {
-				Eout[ly - 1][i][0] = 2 * (prop[i][0] - target[i][0]);
+				Eout[ly - 1][i][0] = 2 * (out[ly - 1][i][0] - target[i][0]);
+				Ebias[ly - 1][i][0] = Enet[ly - 1][i][0] = Eout[ly - 1][i][0] * softmax[i][0] * ((sum - softmax[i][0]) / (sum * sum));
+				Sbias[ly - 1][i][0] += Ebias[ly - 1][i][0] * learning_rate;
+				for(int j = 0; j < ply[ly - 2]; ++j) {
+					Ew[ly - 1][i][j] = Enet[ly - 1][i][0] * out[ly - 2][j][0];
+					Eout[ly - 2][j][0] += w[ly - 1][i][j] * Enet[ly - 1][i][0];
+					Sw[ly - 1][i][j] += Ew[ly - 1][i][j] * learning_rate;
+				}
 			}
-			for(int i = ly - 1; i > 0; --i) {
+			for(int i = ly - 2; i > 0; --i) {
 				Ew[i].clear();
 				Enet[i].clear();
 				Eout[i - 1].clear();
 				Ebias[i].clear();
 				for(int j = 0; j < ply[i]; ++j) {
 					Ebias[i][j][0] = Enet[i][j][0] = Eout[i][j][0] * (*ptr[1])(net[i][j][0]);
-					for(int k = 0; k < ply[i - 1]; ++k) {	
+					for(int k = 0; k < ply[i - 1]; ++k) {
 						Ew[i][j][k] = Enet[i][j][0] * out[i - 1][k][0];
 						Eout[i - 1][k][0] += w[i][j][k] * Enet[i][j][0];
 					}
 				}
 				for(int j = 0; j < ply[i]; ++j) {
-					bias[i][j][0] -= Ebias[i][j][0] * learning_rate;
+					Sbias[i][j][0] += Ebias[i][j][0] * learning_rate;
 				  for(int k = 0; k < ply[i - 1]; ++k) {
-						w[i][j][k] -= Ew[i][j][k] * learning_rate;
+						Sw[i][j][k] += Ew[i][j][k] * learning_rate;
 					}
 				}
 			}
@@ -168,7 +195,31 @@ class Ann {
 		}
 		void print_res() {
 			for(int i = 0; i < ply[ly - 1]; ++i) {
-				cout << prop[i][0] << endl;
+				cout << out[ly - 1][i][0] << endl;
+			}
+		}
+		int get_ans() {
+			int n = -1; double mx = -1e11;
+			for(int i = 0; i < ply[ly - 1]; ++i) {
+				if(out[ly - 1][i][0] > mx) {
+					n = i;
+					mx = out[ly - 1][i][0];
+				}
+			}
+			return n;
+		}
+		void modify() {
+			for(int i = 1; i < ly; ++i) {
+				for(int j = 0; j < ply[i]; ++j) {
+					bias[i][j][0] -= Sbias[i][j][0] / (1.0 * minibatch);
+				  for(int k = 0; k < ply[i - 1]; ++k) {
+						w[i][j][k] -= Sw[i][j][k] / (1.0 * minibatch);
+					}
+				}
+			}
+			for(int i = 1; i < ly; ++i) {
+				Sbias[i].clear();
+				Sw[i].clear();
 			}
 		}
 };
